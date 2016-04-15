@@ -1,5 +1,29 @@
 "use strict";
 
+/*******************************************************************************
+The MIT License (MIT)
+
+Copyright (c) 2016 Simon Bruce
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*******************************************************************************/
+
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -27,12 +51,14 @@ function simpleBoom(response, httpStatusCode) {
  * @type     {Array}
  */
 const mimeTypes = [
+  [/.css$/, "text/css"],
+  [/.gif$/, "image/gif"],
   [/.htm$/, "text/html"],
   [/.html$/, "text/html"],
-  [/.png$/, "image/png"],
-  [/.jpg$/, "image/jpeg"],
   [/.jpeg$/, "image/jpeg"],
-  [/.txt$/, "text/plain"]
+  [/.jpg$/, "image/jpeg"],
+  [/.png$/, "image/png"],
+  [/.txt$/, "text/plain"],
 ];
 
 /**
@@ -51,13 +77,6 @@ function simpleMimeType(filePath) {
 
   return "text/plain";
 }
-
-/**
- * Regex to test for a folder
- *
- * @type     {Regex}
- */
-const pathRegex = /\/$/;
 
 /**
  * Event fired on every request. Handles returning the file to the user.
@@ -84,8 +103,9 @@ function onServerRequest(req, res) {
 
   // If it is a folder then try to open a default page
   let filePath = path.join("files/", req.url);
-  if (pathRegex.test(filePath)) {
-    filePath += "index.html";
+  const filePathParsed = path.parse(filePath);
+  if (filePathParsed.dir === "" && filePathParsed.base.length > 0) {
+    filePath = path.join(filePath, "index.html");
   }
 
   const readStream = fs.createReadStream(filePath);
@@ -130,7 +150,15 @@ function onServerListening() {
 function onServerClose() {
   console.log("Server closed");
   // This is just to please node-e-mon
-  process.kill(process.pid, "SIGUSR2");
+  try {
+    process.kill(process.pid, "SIGUSR2");
+  } catch(error) {
+    // Windows doesn't know what a SIGUSR2 is
+    if (error.message === "Unknown signal: SIGUSR2") {
+      return;
+    }
+    return console.log(`Unknown Error: ${error.message}`);
+  }
 }
 
 /**
